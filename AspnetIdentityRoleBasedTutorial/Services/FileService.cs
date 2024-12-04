@@ -1,66 +1,73 @@
 ﻿namespace AspnetIdentityRoleBasedTutorial.Services
 {
-    public class FileService : IFileService
-    {
-        IWebHostEnvironment environment;
+	public class FileService : IFileService
+	{
+		private readonly IWebHostEnvironment _environment;
 
-        public FileService(IWebHostEnvironment env)
-        {
-            environment = env;
-        }
+		public FileService(IWebHostEnvironment environment)
+		{
+			_environment = environment;
+		}
 
+		public (int, string) SaveImage(IFormFile imageFile)
+		{
+			try
+			{
+				// Define path to store uploaded files
+				var uploadPath = Path.Combine(_environment.WebRootPath, "Uploads");
 
-        public Tuple<int, string> SaveImage(IFormFile imageFile)
-        {
-            try
-            {
-                var wwwPath = this.environment.WebRootPath;
-                var path = Path.Combine(wwwPath, "Uploads");
-                if (!Directory.Exists(path))
-                {
-                    Directory.CreateDirectory(path);
-                }
+				// Create the directory if it doesn't exist
+				if (!Directory.Exists(uploadPath))
+				{
+					Directory.CreateDirectory(uploadPath);
+				}
 
-                // Check the allowed extenstions
-                var ext = Path.GetExtension(imageFile.FileName);
-                var allowedExtensions = new string[] { ".jpg", ".png", ".jpeg" };
-                if (!allowedExtensions.Contains(ext))
-                {
-                    string msg = string.Format("Only {0} extensions are allowed", string.Join(",", allowedExtensions));
-                    return new Tuple<int, string>(0, msg);
-                }
-                string uniqueString = Guid.NewGuid().ToString();
-                var newFileName = uniqueString + ext;
-                var fileWithPath = Path.Combine(path, newFileName);
-                var stream = new FileStream(fileWithPath, FileMode.Create);
-                imageFile.CopyTo(stream);
-                stream.Close();
-                return new Tuple<int, string>(1, newFileName);
-                ;
-            }
-            catch (Exception ex)
-            {
-                return new Tuple<int, string>(0, "Error has occured");
-            }
-        }
+				// Validate file extension
+				var allowedExtensions = new[] { ".jpg", ".png", ".jpeg" };
+				var fileExtension = Path.GetExtension(imageFile.FileName).ToLower();
+				if (!allowedExtensions.Contains(fileExtension))
+				{
+					var errorMessage = $"Only {string.Join(", ", allowedExtensions)} extensions are allowed.";
+					return (0, errorMessage);
+				}
 
-        public bool DeleteImage(string imageFileName)
-        {
-            try
-            {
-                var wwwPath = this.environment.WebRootPath;
-                var path = Path.Combine(wwwPath, "Uploads\\", imageFileName);
-                if (System.IO.File.Exists(path))
-                {
-                    System.IO.File.Delete(path);
-                    return true;
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                return false;
-            }
-        }
-    }
+				// Generate unique file name
+				var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+				var filePath = Path.Combine(uploadPath, uniqueFileName);
+
+				// Save file to disk
+				using (var fileStream = new FileStream(filePath, FileMode.Create))
+				{
+					imageFile.CopyTo(fileStream);
+				}
+
+				return (1, uniqueFileName);
+			}
+			catch (Exception)
+			{
+				return (0, "An error occurred while uploading the image.");
+			}
+		}
+
+		public bool DeleteImage(string imageFileName)
+		{
+			try
+			{
+				var filePath = Path.Combine(_environment.WebRootPath, "Uploads", imageFileName);
+
+				// Delete file if it exists
+				if (File.Exists(filePath))
+				{
+					File.Delete(filePath);
+					return true;
+				}
+
+				return false;
+			}
+			catch (Exception)
+			{
+				return false;
+			}
+		}
+	}
 }
